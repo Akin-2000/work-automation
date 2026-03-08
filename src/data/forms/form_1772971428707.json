@@ -1,0 +1,17 @@
+{
+  "formId": "form_1772971428707",
+  "title": "trial",
+  "description": "Enter description here",
+  "fields": [
+    {
+      "id": "field_1772971446128",
+      "label": "New Field",
+      "type": "text",
+      "required": false
+    }
+  ],
+  "actions": {
+    "submitRedirect": "/dashboard",
+    "cancelRedirect": "/dashboard"
+  }
+}
