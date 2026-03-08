@@ -11,7 +11,6 @@ import {
 import { 
   ChevronLeft, 
   ChevronRight, 
-  ArrowUpDown,
   Search,
   Download
 } from 'lucide-react';
@@ -38,21 +37,6 @@ interface SubmissionsTableProps {
 const columnHelper = createColumnHelper<Submission>();
 
 const baseColumns = [
-  columnHelper.accessor('userName', {
-    header: ({ column }) => (
-      <button
-        className="flex items-center gap-1 hover:text-foreground transition-colors"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        User Name
-        <ArrowUpDown size={14} />
-      </button>
-    ),
-    cell: info => <span className="font-medium">{info.getValue()}</span>,
-  }),
-  columnHelper.accessor('formName', {
-    header: 'Form Name',
-  }),
   columnHelper.accessor('status', {
     header: 'Status',
     cell: info => (
@@ -70,12 +54,6 @@ const baseColumns = [
     header: 'Date',
     cell: info => new Date(info.getValue()).toLocaleDateString(),
   }),
-  columnHelper.accessor('device', {
-    header: 'Device',
-  }),
-  columnHelper.accessor('location', {
-    header: 'Location',
-  }),
 ];
 
 export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data, forms }) => {
@@ -89,22 +67,30 @@ export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data, forms 
   }, [data, selectedFormId]);
 
   const dynamicColumns = React.useMemo(() => {
-    if (selectedFormId === 'all') return baseColumns;
-    
-    const selectedForm = forms.find(f => f.formId === selectedFormId);
-    if (!selectedForm || !selectedForm.fields) return baseColumns;
+    let extraFields: any[] = [];
 
-    // Filter base columns to retain only essential ones
-    const essentialBaseColumns = baseColumns.filter(col => {
-      // @ts-ignore
-      const header = col.header;
-      if (typeof header === 'string') {
-        return ['Status', 'Date'].includes(header);
+    if (selectedFormId === 'all') {
+      // Aggregate all unique fields from all forms
+      const fieldMap = new Map<string, any>();
+      forms.forEach(form => {
+        if (form.fields) {
+          form.fields.forEach((field: any) => {
+            if (!fieldMap.has(field.id)) {
+              fieldMap.set(field.id, field);
+            }
+          });
+        }
+      });
+      extraFields = Array.from(fieldMap.values());
+    } else {
+      // Get fields only for the selected form
+      const selectedForm = forms.find(f => f.formId === selectedFormId);
+      if (selectedForm && selectedForm.fields) {
+        extraFields = selectedForm.fields;
       }
-      return true; // We keep 'userName' as its header is a function (sorting button)
-    });
+    }
 
-    const extraColumns = selectedForm.fields.map((field: any) => 
+    const extraColumns = extraFields.map((field: any) => 
       columnHelper.accessor(row => row.data ? row.data[field.id] : '-', {
         id: field.id,
         header: field.label,
@@ -121,7 +107,7 @@ export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data, forms 
       })
     );
 
-    return [...essentialBaseColumns, ...extraColumns];
+    return [...baseColumns, ...extraColumns];
   }, [selectedFormId, forms]);
 
 
@@ -141,33 +127,36 @@ export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data, forms 
   });
 
   const exportToExcel = () => {
-    // Flatten data for Excel export
-    const exportData = data.map(sub => {
-      const flattened: any = {
-        'Submission ID': sub.id,
-        'Form ID': sub.formId,
-        'Form Name': sub.formName,
-        'User': sub.userName,
-        'Status': sub.status,
-        'Date': new Date(sub.timestamp).toLocaleString(),
-        'Device': sub.device,
-        'Location': sub.location,
-      };
+    // Generate headers from current dynamic columns
+    const exportData = filteredData.map(sub => {
+      const flattened: any = {};
       
-      // Add dynamic form fields to the export
-      if (sub.data && typeof sub.data === 'object') {
-        Object.keys(sub.data).forEach(key => {
-          const val = sub.data![key];
-          flattened[`Field: ${key}`] = Array.isArray(val) ? val.join(', ') : val;
-        });
-      }
+      dynamicColumns.forEach((col: any) => {
+        // Handle standard columns
+        if (typeof col.header === 'string') {
+          if (col.header === 'Status') {
+            flattened[col.header] = sub.status;
+          } else if (col.header === 'Date') {
+            flattened[col.header] = new Date(sub.timestamp).toLocaleString();
+          } else {
+            // It's an extra custom dynamic column
+            const val = sub.data ? sub.data[col.id] : null;
+            if (val !== null && val !== undefined) {
+              flattened[col.header] = Array.isArray(val) ? val.join(', ') : val;
+            } else {
+              flattened[col.header] = '-';
+            }
+          }
+        }
+      });
       
       return flattened;
     });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Submissions");
+    const sheetName = selectedFormId === 'all' ? 'All_Submissions' : forms.find(f => f.formId === selectedFormId)?.title?.substring(0, 31) || 'Submissions';
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, `submissions_export_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
