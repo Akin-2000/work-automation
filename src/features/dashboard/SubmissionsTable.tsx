@@ -94,6 +94,16 @@ export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data, forms 
     const selectedForm = forms.find(f => f.formId === selectedFormId);
     if (!selectedForm || !selectedForm.fields) return baseColumns;
 
+    // Filter base columns to retain only essential ones
+    const essentialBaseColumns = baseColumns.filter(col => {
+      // @ts-ignore
+      const header = col.header;
+      if (typeof header === 'string') {
+        return ['Status', 'Date'].includes(header);
+      }
+      return true; // We keep 'userName' as its header is a function (sorting button)
+    });
+
     const extraColumns = selectedForm.fields.map((field: any) => 
       columnHelper.accessor(row => row.data ? row.data[field.id] : '-', {
         id: field.id,
@@ -111,8 +121,9 @@ export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data, forms 
       })
     );
 
-    return [...baseColumns, ...extraColumns];
+    return [...essentialBaseColumns, ...extraColumns];
   }, [selectedFormId, forms]);
+
 
   const table = useReactTable({
     data: filteredData,
