@@ -5,8 +5,7 @@ import {
   CheckCircle2, 
   XCircle, 
   Clock,
-  BarChart3,
-  TrendingUp
+  BarChart3
 } from 'lucide-react';
 import { KPICard } from './KPICard';
 import { SubmissionsTable } from './SubmissionsTable';
@@ -202,21 +201,33 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-primary text-primary-foreground p-6 rounded-xl shadow-lg relative overflow-hidden flex flex-col justify-between">
-          <div className="relative z-10">
-            <h2 className="text-xl font-bold mb-2">Internal Automation</h2>
-            <p className="text-primary-foreground/80 text-sm">Use the QR scanner to quickly access internal forms and log your workflow events.</p>
-          </div>
-          <div className="relative z-10 mt-6 pt-6 border-t border-white/10">
-            <div className="flex items-center justify-between font-mono text-2xl font-bold">
-              <span>98.2%</span>
-              <TrendingUp size={24} />
+        <div className="bg-card p-6 rounded-xl border border-border shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-foreground">
+              <BarChart3 size={18} className="text-primary" />
+              Forms Performance
+            </h3>
+            <div className="space-y-4 max-h-[220px] overflow-y-auto pr-2">
+              {forms.map(form => {
+                const formSubmissions = submissionsData.filter(s => s.formId === form.formId).length;
+                const percentage = totalScans > 0 ? (formSubmissions / totalScans) * 100 : 0;
+                return (
+                  <div key={form.formId} className="space-y-2">
+                    <div className="flex justify-between text-sm font-medium text-foreground">
+                      <span className="truncate max-w-[150px]">{form.title}</span>
+                      <span>{formSubmissions} subs</span>
+                    </div>
+                    <div className="h-2 w-full bg-accent rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-xs text-primary-foreground/60 uppercase tracking-widest mt-1">Efficiency Rate</p>
           </div>
-          {/* Decorative elements */}
-          <div className="absolute top--10 right--10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom--10 left--10 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
         </div>
       </div>
 
