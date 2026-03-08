@@ -5,13 +5,22 @@
   "fields": [
     {
       "id": "field_1772971446128",
-      "label": "New Field",
+      "label": "name of the person",
       "type": "text",
+      "required": false
+    },
+    {
+      "id": "field_1772973085921",
+      "label": "mobile",
+      "type": "tel",
       "required": false
     }
   ],
   "actions": {
     "submitRedirect": "/dashboard",
     "cancelRedirect": "/dashboard"
-  }
+  },
+  "sha": "faac743879cb0a124dbc6085bf80402a59347505",
+  "path": "src/data/forms/form_1772971428707.json",
+  "source": "github"
 }
