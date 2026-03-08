@@ -33,13 +33,18 @@ export const QRConfig: React.FC = () => {
       const formPromises = files
         .filter((file: any) => file.name.endsWith('.json'))
         .map(async (file: any) => {
-          const data = await getFile(file.path);
-          return { ...data?.content, sha: data?.sha, path: file.path };
+          try {
+            const data = await getFile(file.path);
+            return { ...data?.content, sha: data?.sha, path: file.path };
+          } catch (e) {
+            console.error(`Error loading form at ${file.path}:`, e);
+            return null;
+          }
         });
       const loadedForms = await Promise.all(formPromises);
-      setForms(loadedForms);
+      setForms(loadedForms.filter(Boolean));
     } catch (error) {
-      console.error('Error loading forms:', error);
+      console.error('Error loading forms list:', error);
     } finally {
       setLoading(false);
     }
@@ -69,9 +74,9 @@ export const QRConfig: React.FC = () => {
       
       await loadForms();
       setIsEditorOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving form:', error);
-      alert('Failed to save form to GitHub. Please check your connection and token.');
+      alert(`Failed to save form to GitHub: ${error.message}`);
     } finally {
       setLoading(false);
     }

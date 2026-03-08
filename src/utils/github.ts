@@ -2,7 +2,20 @@ const OWNER = import.meta.env.VITE_GITHUB_OWNER;
 const REPO = import.meta.env.VITE_GITHUB_REPO;
 const TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
 
+// Robust base64 for UTF-8 in browser
+function toBase64(str: string) {
+  return window.btoa(unescape(encodeURIComponent(str)));
+}
+
+function fromBase64(str: string) {
+  return decodeURIComponent(escape(window.atob(str)));
+}
+
 async function githubFetch(path: string, options: RequestInit = {}) {
+  if (!TOKEN || !OWNER || !REPO) {
+    throw new Error('GitHub configuration is missing. Check your environment variables.');
+  }
+
   const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`;
   const response = await fetch(url, {
     ...options,
@@ -14,7 +27,14 @@ async function githubFetch(path: string, options: RequestInit = {}) {
   });
 
   if (!response.ok && response.status !== 404) {
-    throw new Error(`GitHub API error: ${response.statusText}`);
+    let errorDetail = '';
+    try {
+      const errorJson = await response.json();
+      errorDetail = `: ${errorJson.message}`;
+    } catch (e) {
+      errorDetail = `: ${response.statusText}`;
+    }
+    throw new Error(`GitHub API error (${response.status})${errorDetail}`);
   }
   return response;
 }
@@ -23,7 +43,7 @@ export async function getFile(path: string) {
   const response = await githubFetch(path);
   if (response.status === 404) return null;
   const data = await response.json();
-  const content = atob(data.content);
+  const content = fromBase64(data.content);
   return {
     content: JSON.parse(content),
     sha: data.sha,
@@ -43,7 +63,7 @@ export async function listDirectory(path: string) {
 export async function saveFile(path: string, content: any, message: string, sha?: string) {
   const body = {
     message,
-    content: btoa(JSON.stringify(content, null, 2)),
+    content: toBase64(JSON.stringify(content, null, 2)),
     sha,
   };
 
@@ -51,11 +71,6 @@ export async function saveFile(path: string, content: any, message: string, sha?
     method: 'PUT',
     body: JSON.stringify(body),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Failed to save file: ${errorData.message}`);
-  }
 
   return response.json();
 }
