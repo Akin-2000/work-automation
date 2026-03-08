@@ -1,0 +1,17 @@
+{
+  "formId": "form_1772971113631",
+  "title": "New Dynamic Form",
+  "description": "Enter description here",
+  "fields": [
+    {
+      "id": "field_1772971114584",
+      "label": "New Field",
+      "type": "text",
+      "required": false
+    }
+  ],
+  "actions": {
+    "submitRedirect": "/dashboard",
+    "cancelRedirect": "/dashboard"
+  }
+}
