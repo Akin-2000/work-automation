@@ -1,0 +1,58 @@
+[
+  {
+    "id": "sub_1",
+    "formId": "entry_gate",
+    "userName": "John Employee",
+    "formName": "Entry Gate Form",
+    "status": "submitted",
+    "timestamp": "2024-03-08T10:15:00Z",
+    "device": "iPhone 13",
+    "location": "Main Entrance",
+    "data": {
+      "name": "John Employee",
+      "mobile": "9876543210",
+      "department": "IT"
+    }
+  },
+  {
+    "id": "sub_2",
+    "formId": "entry_gate",
+    "userName": "Jane Doe",
+    "formName": "Entry Gate Form",
+    "status": "cancelled",
+    "timestamp": "2024-03-08T11:20:00Z",
+    "device": "Samsung S21",
+    "location": "East Gate",
+    "data": {}
+  },
+  {
+    "id": "sub_3",
+    "formId": "entry_gate",
+    "userName": "Robert Smith",
+    "formName": "Entry Gate Form",
+    "status": "submitted",
+    "timestamp": "2024-03-08T12:45:00Z",
+    "device": "Google Pixel 7",
+    "location": "Main Entrance",
+    "data": {
+      "name": "Robert Smith",
+      "mobile": "9988776655",
+      "department": "HR"
+    }
+  },
+  {
+    "id": "sub_4",
+    "formId": "entry_gate",
+    "userName": "Alice Brown",
+    "formName": "Entry Gate Form",
+    "status": "submitted",
+    "timestamp": "2024-03-08T14:10:00Z",
+    "device": "MacBook Pro",
+    "location": "Remote",
+    "data": {
+      "name": "Alice Brown",
+      "mobile": "9123456789",
+      "department": "Finance"
+    }
+  }
+]
