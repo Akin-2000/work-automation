@@ -191,7 +191,7 @@ export const QRConfig: React.FC = () => {
   }
 
   if (view === 'qr' && selectedForm) {
-    const qrValue = `https://companyapp.com/form?id=${selectedForm.formId}`;
+    const qrValue = `${window.location.origin}/form?id=${selectedForm.formId}`;
     return (
       <div className="p-6 max-w-md mx-auto space-y-6">
         <button 

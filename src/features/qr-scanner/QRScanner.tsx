@@ -18,7 +18,7 @@ export const QRScanner: React.FC = () => {
     );
     
     scanner.render((decodedText: string) => {
-      // Expected format: https://companyapp.com/form?id=entry_gate or just "entry_gate"
+      // Expected format: [origin]/form?id=entry_gate or just "entry_gate"
       try {
         let formId = decodedText;
         if (decodedText.includes('?id=')) {
