@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QRGenerator } from './QRGenerator';
 import { FormEditor } from './FormEditor';
 import { DynamicFormRenderer } from '../qr-form-renderer/DynamicFormRenderer';
-import { getFile, listDirectory, saveFile } from '../../utils/github';
+import { getFile, listDirectory, saveFile, getLocalForms } from '../../utils/github';
 import { 
   Plus, 
   Search, 
@@ -11,12 +11,14 @@ import {
   Edit, 
   ArrowLeft,
   FileCode,
-  Loader2
+  Loader2,
+  Cloud,
+  HardDrive
 } from 'lucide-react';
 
 export const QRConfig: React.FC = () => {
-  const [forms, setForms] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [forms, setForms] = useState<any[]>(getLocalForms()); // Start with local forms
+  const [loading, setLoading] = useState(false);
   const [selectedForm, setSelectedForm] = useState<any>(null);
   const [view, setView] = useState<'list' | 'preview' | 'qr'>('list');
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,6 +29,10 @@ export const QRConfig: React.FC = () => {
   }, []);
 
   const loadForms = async () => {
+    // Already has local forms via initial state, but let's refresh them and fetch remote
+    const local = getLocalForms();
+    setForms(local);
+
     setLoading(true);
     try {
       const files = await listDirectory('src/data/forms');
@@ -35,14 +41,24 @@ export const QRConfig: React.FC = () => {
         .map(async (file: any) => {
           try {
             const data = await getFile(file.path);
-            return { ...data?.content, sha: data?.sha, path: file.path };
+            return { ...data?.content, sha: data?.sha, path: file.path, source: 'github' };
           } catch (e) {
             console.error(`Error loading form at ${file.path}:`, e);
             return null;
           }
         });
-      const loadedForms = await Promise.all(formPromises);
-      setForms(loadedForms.filter(Boolean));
+      const remoteForms = (await Promise.all(formPromises)).filter(Boolean);
+      
+      // Merge: GitHub versions take priority for the same formId
+      setForms(_ => {
+        const merged = [...remoteForms];
+        local.forEach(l => {
+          if (!merged.some(r => r.formId === l.formId)) {
+            merged.push({ ...l, source: 'local' });
+          }
+        });
+        return merged;
+      });
     } catch (error) {
       console.error('Error loading forms list:', error);
     } finally {
@@ -163,9 +179,20 @@ export const QRConfig: React.FC = () => {
                     <div className="p-2 bg-primary/10 rounded-lg text-primary">
                       <QrCode size={24} />
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-accent px-2 py-0.5 rounded text-muted-foreground">
-                      {form.fields.length} Fields
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-accent px-2 py-0.5 rounded text-muted-foreground">
+                        {form.fields.length} Fields
+                      </span>
+                      {form.source === 'github' ? (
+                        <div className="flex items-center gap-1 text-[9px] text-green-500 font-medium">
+                          <Cloud size={10} /> Cloud Sync
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-[9px] text-amber-500 font-medium">
+                          <HardDrive size={10} /> Local Only
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">{form.title}</h3>
                   <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{form.description}</p>

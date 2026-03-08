@@ -74,3 +74,15 @@ export async function saveFile(path: string, content: any, message: string, sha?
 
   return response.json();
 }
+
+// Local data loading (Vite specific)
+const localForms = import.meta.glob('../data/forms/*.json', { eager: true });
+const localSubmissions = import.meta.glob('../data/submissions/**/*.json', { eager: true });
+
+export function getLocalForms() {
+  return Object.values(localForms).map((module: any) => module.default || module);
+}
+
+export function getLocalSubmissions() {
+  return Object.values(localSubmissions).map((module: any) => module.default || module);
+}

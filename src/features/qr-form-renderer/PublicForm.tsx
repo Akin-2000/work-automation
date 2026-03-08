@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { DynamicFormRenderer } from './DynamicFormRenderer';
-import { getFile, saveFile } from '../../utils/github';
+import { getFile, saveFile, getLocalForms } from '../../utils/github';
 import { AlertTriangle, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 
 export const PublicForm: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const formId = searchParams.get('id');
-  const [formConfig, setFormConfig] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Initial state from local fallback
+  const [formConfig, setFormConfig] = useState<any>(() => {
+    const local = getLocalForms();
+    return local.find(f => f.formId === formId) || null;
+  });
+  
+  const [loading, setLoading] = useState(!formConfig);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -19,14 +25,17 @@ export const PublicForm: React.FC = () => {
   }, [formId]);
 
   const loadForm = async () => {
-    setLoading(true);
+    // If we don't have it locally, show loader
+    if (!formConfig) setLoading(true);
+    
     try {
       const data = await getFile(`src/data/forms/${formId}.json`);
       if (data) {
         setFormConfig(data.content);
       }
     } catch (error) {
-      console.error('Error loading form:', error);
+      console.error('Error loading form from GitHub:', error);
+      // Fallback is already set in state if it existed locally
     } finally {
       setLoading(false);
     }

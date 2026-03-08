@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { KPICard } from './KPICard';
 import { SubmissionsTable } from './SubmissionsTable';
-import { listDirectory, getFile } from '../../utils/github';
+import { listDirectory, getFile, getLocalSubmissions } from '../../utils/github';
 import { 
   BarChart, 
   Bar, 
@@ -23,16 +23,17 @@ import {
 } from 'recharts';
 
 export const Dashboard: React.FC = () => {
-  const [submissionsData, setSubmissionsData] = useState<any[]>([]);
+  const [submissionsData, setSubmissionsData] = useState<any[]>(getLocalSubmissions());
 
   useEffect(() => {
     loadAllSubmissions();
   }, []);
 
   const loadAllSubmissions = async () => {
+    const local = getLocalSubmissions();
     try {
       const formDirs = await listDirectory('src/data/submissions');
-      let allSubmissions: any[] = [];
+      let remoteSubmissions: any[] = [];
       
       for (const dir of formDirs) {
         if (dir.type === 'dir') {
@@ -40,18 +41,34 @@ export const Dashboard: React.FC = () => {
           const subPromises = files
             .filter((f: any) => f.name.endsWith('.json'))
             .map(async (f: any) => {
-              const data = await getFile(f.path);
-              return data?.content;
+              try {
+                const data = await getFile(f.path);
+                return data?.content;
+              } catch (e) {
+                return null;
+              }
             });
           const subs = await Promise.all(subPromises);
-          allSubmissions = [...allSubmissions, ...subs.filter(Boolean)];
+          remoteSubmissions = [...remoteSubmissions, ...subs.filter(Boolean)];
         }
       }
-      setSubmissionsData(allSubmissions.sort((a, b) => 
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      ));
+      
+      setSubmissionsData(_ => {
+        const merged = [...remoteSubmissions];
+        local.forEach(l => {
+          if (!merged.some(r => r.id === l.id)) {
+            merged.push(l);
+          }
+        });
+        return merged.sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+      });
     } catch (error) {
       console.error('Error loading submissions:', error);
+      setSubmissionsData(local.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      ));
     }
   };
 
