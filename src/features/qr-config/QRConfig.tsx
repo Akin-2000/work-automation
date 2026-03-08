@@ -1,8 +1,3 @@
-import React, { useState, useEffect } from 'react';
-import { QRGenerator } from './QRGenerator';
-import { FormEditor } from './FormEditor';
-import { DynamicFormRenderer } from '../qr-form-renderer/DynamicFormRenderer';
-import { getFile, listDirectory, saveFile, getLocalForms } from '../../utils/github';
 import { 
   Plus, 
   Search, 
@@ -13,8 +8,10 @@ import {
   FileCode,
   Loader2,
   Cloud,
-  HardDrive
+  HardDrive,
+  Trash2
 } from 'lucide-react';
+import { getFile, listDirectory, saveFile, getLocalForms, deleteFile } from '../../utils/github';
 
 export const QRConfig: React.FC = () => {
   const [forms, setForms] = useState<any[]>(getLocalForms()); // Start with local forms
@@ -61,6 +58,29 @@ export const QRConfig: React.FC = () => {
       });
     } catch (error) {
       console.error('Error loading forms list:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteForm = async (form: any) => {
+    if (!window.confirm(`Are you sure you want to delete "${form.title}"? This will remove it from GitHub.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      if (form.source === 'github' && form.sha) {
+        await deleteFile(form.path, form.sha, `Delete form: ${form.title}`);
+      }
+      
+      // If it's local only, we can't delete the physical file from browser, 
+      // but we can update the UI. However, usually they will exist in both.
+      alert('Form deleted successfully from GitHub. (Note: Local fallback files cannot be physically deleted by this browser app)');
+      await loadForms();
+    } catch (error: any) {
+      console.error('Error deleting form:', error);
+      alert(`Failed to delete form: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -192,6 +212,13 @@ export const QRConfig: React.FC = () => {
                           <HardDrive size={10} /> Local Only
                         </div>
                       )}
+                      <button 
+                        onClick={() => handleDeleteForm(form)}
+                        className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Form"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </div>
                   <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">{form.title}</h3>

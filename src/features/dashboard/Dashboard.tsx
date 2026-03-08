@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { KPICard } from './KPICard';
 import { SubmissionsTable } from './SubmissionsTable';
-import { listDirectory, getFile, getLocalSubmissions } from '../../utils/github';
+import { listDirectory, getFile, getLocalSubmissions, getLocalForms } from '../../utils/github';
 import { 
   BarChart, 
   Bar, 
@@ -24,10 +24,37 @@ import {
 
 export const Dashboard: React.FC = () => {
   const [submissionsData, setSubmissionsData] = useState<any[]>(getLocalSubmissions());
+  const [forms, setForms] = useState<any[]>(getLocalForms());
 
   useEffect(() => {
     loadAllSubmissions();
+    loadForms();
   }, []);
+
+  const loadForms = async () => {
+    const local = getLocalForms();
+    try {
+      const files = await listDirectory('src/data/forms');
+      const formPromises = files
+        .filter((file: any) => file.name.endsWith('.json'))
+        .map(async (file: any) => {
+          try {
+            const data = await getFile(file.path);
+            return data?.content;
+          } catch (e) { return null; }
+        });
+      const remote = (await Promise.all(formPromises)).filter(Boolean);
+      setForms(_ => {
+        const merged = [...remote];
+        local.forEach(l => {
+          if (!merged.some(r => r.formId === l.formId)) merged.push(l);
+        });
+        return merged;
+      });
+    } catch (e) {
+      console.error('Error loading forms for dashboard:', e);
+    }
+  };
 
   const loadAllSubmissions = async () => {
     const local = getLocalSubmissions();

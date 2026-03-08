@@ -75,6 +75,20 @@ export async function saveFile(path: string, content: any, message: string, sha?
   return response.json();
 }
 
+export async function deleteFile(path: string, sha: string, message: string) {
+  const body = {
+    message,
+    sha,
+  };
+
+  const response = await githubFetch(path, {
+    method: 'DELETE',
+    body: JSON.stringify(body),
+  });
+
+  return response.json();
+}
+
 // Local data loading (Vite specific)
 const localForms = import.meta.glob('../data/forms/*.json', { eager: true });
 const localSubmissions = import.meta.glob('../data/submissions/**/*.json', { eager: true });
