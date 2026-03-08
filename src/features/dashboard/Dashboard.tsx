@@ -98,9 +98,21 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const totalScans = submissionsData.length;
-  const submissions = submissionsData.filter(s => s.status === 'submitted').length;
-  const cancelled = submissionsData.filter(s => s.status === 'cancelled').length;
+  // Filter submissions to only include those that belong to active forms
+  const filteredSubmissions = submissionsData.filter(s => 
+    forms.some(f => f.formId === s.formId)
+  ).map(s => {
+    // Dynamically update form name in case it changed in the configuration
+    const form = forms.find(f => f.formId === s.formId);
+    return {
+      ...s,
+      formName: form ? form.title : s.formName
+    };
+  });
+
+  const totalScans = filteredSubmissions.length;
+  const submissions = filteredSubmissions.filter(s => s.status === 'submitted').length;
+  const cancelled = filteredSubmissions.filter(s => s.status === 'cancelled').length;
   const pending = 0;
 
   const chartData = [
@@ -209,7 +221,7 @@ export const Dashboard: React.FC = () => {
             </h3>
             <div className="space-y-4 max-h-[220px] overflow-y-auto pr-2">
               {forms.map(form => {
-                const formSubmissions = submissionsData.filter(s => s.formId === form.formId).length;
+                const formSubmissions = filteredSubmissions.filter(s => s.formId === form.formId).length;
                 const percentage = totalScans > 0 ? (formSubmissions / totalScans) * 100 : 0;
                 return (
                   <div key={form.formId} className="space-y-2">
@@ -236,7 +248,7 @@ export const Dashboard: React.FC = () => {
           <Users className="text-primary" size={20} />
           Recent Submissions
         </h2>
-        <SubmissionsTable data={submissionsData} />
+        <SubmissionsTable data={filteredSubmissions} />
       </div>
     </div>
   );
