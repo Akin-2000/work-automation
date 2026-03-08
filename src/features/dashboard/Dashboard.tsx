@@ -248,7 +248,7 @@ export const Dashboard: React.FC = () => {
           <Users className="text-primary" size={20} />
           Recent Submissions
         </h2>
-        <SubmissionsTable data={filteredSubmissions} />
+        <SubmissionsTable data={filteredSubmissions} forms={forms} />
       </div>
     </div>
   );

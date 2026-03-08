@@ -32,11 +32,12 @@ export interface Submission {
 
 interface SubmissionsTableProps {
   data: Submission[];
+  forms: any[];
 }
 
 const columnHelper = createColumnHelper<Submission>();
 
-const columns = [
+const baseColumns = [
   columnHelper.accessor('userName', {
     header: ({ column }) => (
       <button
@@ -77,13 +78,45 @@ const columns = [
   }),
 ];
 
-export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data }) => {
+export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data, forms }) => {
   const [sorting, setSorting] = React.useState([]);
   const [globalFilter, setGlobalFilter] = React.useState('');
+  const [selectedFormId, setSelectedFormId] = React.useState('all');
+
+  const filteredData = React.useMemo(() => {
+    if (selectedFormId === 'all') return data;
+    return data.filter(sub => sub.formId === selectedFormId);
+  }, [data, selectedFormId]);
+
+  const dynamicColumns = React.useMemo(() => {
+    if (selectedFormId === 'all') return baseColumns;
+    
+    const selectedForm = forms.find(f => f.formId === selectedFormId);
+    if (!selectedForm || !selectedForm.fields) return baseColumns;
+
+    const extraColumns = selectedForm.fields.map((field: any) => 
+      columnHelper.accessor(row => row.data ? row.data[field.id] : '-', {
+        id: field.id,
+        header: field.label,
+        cell: info => {
+          const val = info.getValue();
+          if (typeof val === 'boolean') {
+            return val ? 'Yes' : 'No';
+          }
+          if (Array.isArray(val)) {
+            return val.join(', ');
+          }
+          return val || '-';
+        }
+      })
+    );
+
+    return [...baseColumns, ...extraColumns];
+  }, [selectedFormId, forms]);
 
   const table = useReactTable({
-    data,
-    columns,
+    data: filteredData,
+    columns: dynamicColumns,
     state: {
       sorting,
       globalFilter,
@@ -111,9 +144,10 @@ export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data }) => {
       };
       
       // Add dynamic form fields to the export
-      if (sub.data) {
+      if (sub.data && typeof sub.data === 'object') {
         Object.keys(sub.data).forEach(key => {
-          flattened[`Field: ${key}`] = sub.data[key];
+          const val = sub.data![key];
+          flattened[`Field: ${key}`] = Array.isArray(val) ? val.join(', ') : val;
         });
       }
       
@@ -129,14 +163,28 @@ export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data }) => {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card p-4 rounded-xl border border-border shadow-sm">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-          <input
-            placeholder="Search submissions..."
-            value={globalFilter ?? ''}
-            onChange={e => setGlobalFilter(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          />
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
+            <input
+              placeholder="Search submissions..."
+              value={globalFilter ?? ''}
+              onChange={e => setGlobalFilter(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+          <select
+            value={selectedFormId}
+            onChange={(e) => setSelectedFormId(e.target.value)}
+            className="flex h-10 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="all">All Forms</option>
+            {forms.map(form => (
+              <option key={form.formId} value={form.formId}>
+                {form.title}
+              </option>
+            ))}
+          </select>
         </div>
         <button
           onClick={exportToExcel}
