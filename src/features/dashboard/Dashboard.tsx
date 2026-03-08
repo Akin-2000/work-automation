@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   QrCode, 
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { KPICard } from './KPICard';
 import { SubmissionsTable } from './SubmissionsTable';
-import submissionsData from '../../mock-data/submissions.json';
+import { listDirectory, getFile } from '../../utils/github';
 import { 
   BarChart, 
   Bar, 
@@ -23,19 +23,51 @@ import {
 } from 'recharts';
 
 export const Dashboard: React.FC = () => {
-  const totalScans = submissionsData.length + 5; // Mocking some additional scans
+  const [submissionsData, setSubmissionsData] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadAllSubmissions();
+  }, []);
+
+  const loadAllSubmissions = async () => {
+    try {
+      const formDirs = await listDirectory('src/data/submissions');
+      let allSubmissions: any[] = [];
+      
+      for (const dir of formDirs) {
+        if (dir.type === 'dir') {
+          const files = await listDirectory(dir.path);
+          const subPromises = files
+            .filter((f: any) => f.name.endsWith('.json'))
+            .map(async (f: any) => {
+              const data = await getFile(f.path);
+              return data?.content;
+            });
+          const subs = await Promise.all(subPromises);
+          allSubmissions = [...allSubmissions, ...subs.filter(Boolean)];
+        }
+      }
+      setSubmissionsData(allSubmissions.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      ));
+    } catch (error) {
+      console.error('Error loading submissions:', error);
+    }
+  };
+
+  const totalScans = submissionsData.length;
   const submissions = submissionsData.filter(s => s.status === 'submitted').length;
   const cancelled = submissionsData.filter(s => s.status === 'cancelled').length;
-  const pending = 2; // Mocked
+  const pending = 0;
 
   const chartData = [
-    { name: 'Mon', count: 12 },
-    { name: 'Tue', count: 19 },
-    { name: 'Wed', count: 15 },
-    { name: 'Thu', count: 22 },
-    { name: 'Fri', count: 30 },
-    { name: 'Sat', count: 8 },
-    { name: 'Sun', count: 5 },
+    { name: 'Mon', count: Math.floor(submissions * 0.1) },
+    { name: 'Tue', count: Math.floor(submissions * 0.2) },
+    { name: 'Wed', count: Math.floor(submissions * 0.15) },
+    { name: 'Thu', count: Math.floor(submissions * 0.25) },
+    { name: 'Fri', count: Math.floor(submissions * 0.3) },
+    { name: 'Sat', count: 0 },
+    { name: 'Sun', count: 0 },
   ];
 
   return (
@@ -114,7 +146,7 @@ export const Dashboard: React.FC = () => {
                   }}
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry, index) => (
+                  {chartData.map((_, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={index === 4 ? 'hsl(var(--primary))' : 'hsl(var(--primary)/0.3)'} 

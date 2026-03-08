@@ -20,12 +20,14 @@ import * as XLSX from 'xlsx';
 
 export interface Submission {
   id: string;
+  formId: string;
   userName: string;
   formName: string;
   status: string;
   timestamp: string;
   device: string;
   location: string;
+  data?: Record<string, any>;
 }
 
 interface SubmissionsTableProps {
@@ -95,10 +97,33 @@ export const SubmissionsTable: React.FC<SubmissionsTableProps> = ({ data }) => {
   });
 
   const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(data);
+    // Flatten data for Excel export
+    const exportData = data.map(sub => {
+      const flattened: any = {
+        'Submission ID': sub.id,
+        'Form ID': sub.formId,
+        'Form Name': sub.formName,
+        'User': sub.userName,
+        'Status': sub.status,
+        'Date': new Date(sub.timestamp).toLocaleString(),
+        'Device': sub.device,
+        'Location': sub.location,
+      };
+      
+      // Add dynamic form fields to the export
+      if (sub.data) {
+        Object.keys(sub.data).forEach(key => {
+          flattened[`Field: ${key}`] = sub.data[key];
+        });
+      }
+      
+      return flattened;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Submissions");
-    XLSX.writeFile(wb, "submissions_export.xlsx");
+    XLSX.writeFile(wb, `submissions_export_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (

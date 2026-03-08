@@ -1,23 +1,94 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { DynamicFormRenderer } from './DynamicFormRenderer';
-import forms from '../../mock-data/forms.json';
-import { AlertTriangle, ArrowLeft } from 'lucide-react';
+import { getFile, saveFile } from '../../utils/github';
+import { AlertTriangle, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 
 export const PublicForm: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const formId = searchParams.get('id');
+  const [formConfig, setFormConfig] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitted, setSubmitted] = useState(false);
 
-  const formConfig = useMemo(() => {
-    if (!formId) return null;
-    return forms.find((f) => f.formId === formId);
+  useEffect(() => {
+    if (formId) {
+      loadForm();
+    }
   }, [formId]);
 
-  const handleFormSubmit = (data: any) => {
-    console.log(`Form ${formId} submitted:`, data);
-    // In a real app, this would be an API call to save the submission
+  const loadForm = async () => {
+    setLoading(true);
+    try {
+      const data = await getFile(`src/data/forms/${formId}.json`);
+      if (data) {
+        setFormConfig(data.content);
+      }
+    } catch (error) {
+      console.error('Error loading form:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleFormSubmit = async (data: any) => {
+    try {
+      setLoading(true);
+      const submissionId = `sub_${Date.now()}`;
+      const timestamp = new Date().toISOString();
+      const submission = {
+        id: submissionId,
+        formId,
+        userName: data.name || 'Anonymous',
+        formName: formConfig?.title || 'Unknown Form',
+        status: 'submitted',
+        timestamp,
+        device: navigator.userAgent.split(') ')[0].split(' (')[1] || 'Web Browser',
+        location: 'Remote',
+        data
+      };
+
+      await saveFile(
+        `src/data/submissions/${formId}/${submissionId}.json`,
+        submission,
+        `New submission for ${formConfig?.title}`
+      );
+      
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('Failed to submit form. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && !submitted) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={48} />
+      </div>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+        <div className="bg-card p-8 rounded-2xl border border-border shadow-lg max-w-md w-full text-center">
+          <CheckCircle2 className="text-green-500 mx-auto mb-4" size={64} />
+          <h1 className="text-2xl font-bold mb-2">Submission Successful!</h1>
+          <p className="text-muted-foreground mb-6">Your response has been recorded in our system.</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+          >
+            Submit Another Response
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!formId) {
     return (

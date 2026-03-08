@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import formsData from '../../mock-data/forms.json';
+import React, { useState, useEffect } from 'react';
 import { QRGenerator } from './QRGenerator';
 import { FormEditor } from './FormEditor';
 import { DynamicFormRenderer } from '../qr-form-renderer/DynamicFormRenderer';
+import { getFile, listDirectory, saveFile } from '../../utils/github';
 import { 
   Plus, 
   Search, 
@@ -10,29 +10,71 @@ import {
   Eye, 
   Edit, 
   ArrowLeft,
-  FileCode
+  FileCode,
+  Loader2
 } from 'lucide-react';
 
 export const QRConfig: React.FC = () => {
-  const [forms, setForms] = useState(formsData);
+  const [forms, setForms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedForm, setSelectedForm] = useState<any>(null);
   const [view, setView] = useState<'list' | 'preview' | 'qr'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  useEffect(() => {
+    loadForms();
+  }, []);
+
+  const loadForms = async () => {
+    setLoading(true);
+    try {
+      const files = await listDirectory('src/data/forms');
+      const formPromises = files
+        .filter((file: any) => file.name.endsWith('.json'))
+        .map(async (file: any) => {
+          const data = await getFile(file.path);
+          return { ...data?.content, sha: data?.sha, path: file.path };
+        });
+      const loadedForms = await Promise.all(formPromises);
+      setForms(loadedForms);
+    } catch (error) {
+      console.error('Error loading forms:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredForms = forms.filter(f => 
     f.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
     f.formId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSaveForm = (updatedForm: any) => {
-    const exists = forms.some(f => f.formId === updatedForm.formId);
-    if (exists) {
-      setForms(forms.map(f => f.formId === updatedForm.formId ? updatedForm : f));
-    } else {
-      setForms([...forms, updatedForm]);
+  const handleSaveForm = async (updatedForm: any) => {
+    try {
+      setLoading(true);
+      const fileName = `${updatedForm.formId}.json`;
+      const path = `src/data/forms/${fileName}`;
+      
+      // Check if we already have the SHA for this file
+      const existingForm = forms.find(f => f.formId === updatedForm.formId);
+      const sha = updatedForm.sha || existingForm?.sha;
+
+      await saveFile(
+        path,
+        updatedForm,
+        `Update form: ${updatedForm.title}`,
+        sha
+      );
+      
+      await loadForms();
+      setIsEditorOpen(false);
+    } catch (error) {
+      console.error('Error saving form:', error);
+      alert('Failed to save form to GitHub. Please check your connection and token.');
+    } finally {
+      setLoading(false);
     }
-    setSelectedForm(updatedForm);
   };
 
   const handleExportScript = (form: any) => {
@@ -102,61 +144,68 @@ export const QRConfig: React.FC = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredForms.map((form) => (
-            <div key={form.formId} className="group bg-card border border-border rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
-              <div className="p-6 flex-1">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                    <QrCode size={24} />
+        {loading && forms.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed rounded-2xl">
+            <Loader2 className="animate-spin text-primary mb-4" size={40} />
+            <p className="text-muted-foreground">Fetching forms from repository...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredForms.map((form) => (
+              <div key={form.formId} className="group bg-card border border-border rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+                <div className="p-6 flex-1">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                      <QrCode size={24} />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-accent px-2 py-0.5 rounded text-muted-foreground">
+                      {form.fields.length} Fields
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-accent px-2 py-0.5 rounded text-muted-foreground">
-                    {form.fields.length} Fields
-                  </span>
+                  <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">{form.title}</h3>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{form.description}</p>
+                  <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground bg-muted p-2 rounded">
+                    <span className="opacity-50">ID:</span> {form.formId}
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">{form.title}</h3>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{form.description}</p>
-                <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground bg-muted p-2 rounded">
-                  <span className="opacity-50">ID:</span> {form.formId}
+                <div className="p-4 bg-muted/30 border-t border-border mt-auto grid grid-cols-4 gap-2">
+                  <button 
+                    onClick={() => { setSelectedForm(form); setView('preview'); }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors text-muted-foreground"
+                    title="Preview"
+                  >
+                    <Eye size={16} />
+                    <span className="text-[10px]">Preview</span>
+                  </button>
+                  <button 
+                    onClick={() => { setSelectedForm(form); setView('qr'); }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors text-muted-foreground"
+                    title="QR Code"
+                  >
+                    <QrCode size={16} />
+                    <span className="text-[10px]">QR Code</span>
+                  </button>
+                  <button 
+                    onClick={() => handleExportScript(form)}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors text-muted-foreground"
+                    title="Export Script"
+                  >
+                    <FileCode size={16} />
+                    <span className="text-[10px]">Script</span>
+                  </button>
+                  <button 
+                    onClick={() => { setSelectedForm(form); setIsEditorOpen(true); }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors text-muted-foreground"
+                    title="Edit"
+                  >
+                    <Edit size={16} />
+                    <span className="text-[10px]">Edit</span>
+                  </button>
                 </div>
               </div>
-              <div className="p-4 bg-muted/30 border-t border-border mt-auto grid grid-cols-4 gap-2">
-                <button 
-                  onClick={() => { setSelectedForm(form); setView('preview'); }}
-                  className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors text-muted-foreground"
-                  title="Preview"
-                >
-                  <Eye size={16} />
-                  <span className="text-[10px]">Preview</span>
-                </button>
-                <button 
-                  onClick={() => { setSelectedForm(form); setView('qr'); }}
-                  className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors text-muted-foreground"
-                  title="QR Code"
-                >
-                  <QrCode size={16} />
-                  <span className="text-[10px]">QR Code</span>
-                </button>
-                <button 
-                  onClick={() => handleExportScript(form)}
-                  className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors text-muted-foreground"
-                  title="Export Script"
-                >
-                  <FileCode size={16} />
-                  <span className="text-[10px]">Script</span>
-                </button>
-                <button 
-                  onClick={() => { setSelectedForm(form); setIsEditorOpen(true); }}
-                  className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent hover:text-foreground transition-colors text-muted-foreground"
-                  title="Edit"
-                >
-                  <Edit size={16} />
-                  <span className="text-[10px]">Edit</span>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {selectedForm && (
           <FormEditor 
